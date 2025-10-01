@@ -1,1 +1,364 @@
+<!-- Image-compressor (refreshed UI + bug fixes) -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MediaToolsHub — All-in-One Image, Video & PDF Toolkit</title>
+  <meta name="description" content="MediaToolsHub: compress, resize, convert, crop images; compress videos; and process PDFs — fully client-side, private, and ad-ready." />
+  <meta name="keywords" content="image compressor, video compressor, pdf tools, image resize, image convert, cropper, pdf merge, pdf split" />
+  <meta name="robots" content="index, follow" />
+
+  <!-- Tailwind CDN for UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- External libs for PDFs -->
+  <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+
+  <style>
+    /* small visual tweaks */
+    .tool-card { max-width:1000px }
+    canvas { background:#fff }
+    /* mobile fixes for sidebar */
+    @media (max-width: 768px) { #sidebar { position: sticky; top:0; z-index:30 } }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <header class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 shadow-md">
+    <div class="max-w-7xl mx-auto flex items-center gap-4">
+      <div class="text-2xl font-semibold">MediaToolsHub</div>
+      <div class="text-sm opacity-90">Private · Client-side · Ad-ready</div>
+      <div class="ml-auto text-sm opacity-80">&copy; 2025</div>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto p-4 md:flex md:gap-6">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="w-full md:w-64 bg-white rounded-lg shadow p-4">
+      <nav class="space-y-2">
+        <button data-target="images" class="tool-btn w-full text-left flex items-center gap-3 p-3 rounded-md bg-blue-50">
+          <i class="fa-solid fa-image text-blue-600 w-6"></i> Images
+        </button>
+        <button data-target="video" class="tool-btn w-full text-left flex items-center gap-3 p-3 rounded-md hover:bg-slate-50">
+          <i class="fa-solid fa-video text-red-500 w-6"></i> Video
+        </button>
+        <button data-target="pdf" class="tool-btn w-full text-left flex items-center gap-3 p-3 rounded-md hover:bg-slate-50">
+          <i class="fa-solid fa-file-pdf text-orange-500 w-6"></i> PDF
+        </button>
+        <button data-target="extras" class="tool-btn w-full text-left flex items-center gap-3 p-3 rounded-md hover:bg-slate-50">
+          <i class="fa-solid fa-th-list text-green-600 w-6"></i> Extras
+        </button>
+      </nav>
+
+      <div class="mt-6 text-center text-sm text-slate-500">
+        <div class="p-3 border rounded">AdSense / Promo<br><span class="text-xs">Paste ad code here</span></div>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="flex-1 mt-4 md:mt-0">
+      <!-- Images Section (tabs inside) -->
+      <section id="images" class="tool-card bg-white p-6 rounded-lg shadow">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Image Tools</h2>
+          <div class="text-sm text-slate-500">All tools run in your browser — files are not uploaded.</div>
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <!-- Left column: uploader + controls -->
+          <div class="space-y-4">
+            <div class="p-4 border-dashed border-2 border-slate-200 rounded text-center" id="imageDrop">
+              <input id="imageFileInput" type="file" accept="image/*" class="hidden" />
+              <p class="text-sm">Drag & drop or <button id="browseImage" class="text-blue-600 underline">browse</button> an image</p>
+              <div class="mt-2 text-xs text-slate-400">Supported: JPG, PNG, WebP, GIF, SVG</div>
+            </div>
+
+            <div class="p-4 bg-slate-50 rounded">
+              <label class="block text-sm">Select Tool</label>
+              <div class="mt-2 flex gap-2">
+                <button id="tabCompress" class="px-3 py-1 rounded bg-blue-600 text-white text-sm">Compress</button>
+                <button id="tabResize" class="px-3 py-1 rounded bg-slate-100 text-sm">Resize</button>
+                <button id="tabConvert" class="px-3 py-1 rounded bg-slate-100 text-sm">Convert</button>
+                <button id="tabCrop" class="px-3 py-1 rounded bg-slate-100 text-sm">Crop</button>
+              </div>
+            </div>
+
+            <!-- Tool panels -->
+            <div id="panelCompress" class="tool-panel p-4 border rounded">
+              <label class="text-sm">Quality: <span id="compressQVal" class="font-medium">80</span>%</label>
+              <input id="compressQuality" type="range" min="10" max="100" value="80" class="w-full mt-2" />
+              <div class="mt-3 flex gap-2"><button id="compressRun" class="btn bg-blue-600 text-white px-3 py-2 rounded">Compress & Download</button><div id="compressStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+            <div id="panelResize" class="hidden tool-panel p-4 border rounded">
+              <div class="grid grid-cols-2 gap-2">
+                <label class="text-sm">Width <input id="resizeW" type="number" class="w-full border rounded px-2 py-1" /></label>
+                <label class="text-sm">Height <input id="resizeH" type="number" class="w-full border rounded px-2 py-1" /></label>
+              </div>
+              <label class="block mt-2 text-sm"><input id="keepAspect" type="checkbox" checked /> Keep aspect ratio</label>
+              <div class="mt-3 flex gap-2"><button id="resizeRun" class="btn bg-green-600 text-white px-3 py-2 rounded">Resize & Download</button><div id="resizeStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+            <div id="panelConvert" class="hidden tool-panel p-4 border rounded">
+              <label class="text-sm">Format</label>
+              <select id="convertFormatSel" class="w-full border rounded px-2 py-1 mt-2">
+                <option value="image/webp">WebP</option>
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/png">PNG</option>
+                <option value="image/gif">GIF</option>
+              </select>
+              <div class="mt-3 flex gap-2"><button id="convertRun" class="btn bg-purple-600 text-white px-3 py-2 rounded">Convert & Download</button><div id="convertStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+            <div id="panelCrop" class="hidden tool-panel p-4 border rounded">
+              <div class="text-sm mb-2">Drag on the preview to select crop area. Then download.</div>
+              <div class="mt-3 flex gap-2"><button id="cropRun" class="btn bg-pink-600 text-white px-3 py-2 rounded">Download Cropped</button><div id="cropStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+          </div>
+
+          <!-- Right column: preview -->
+          <div class="space-y-4">
+            <div class="p-4 border rounded bg-white text-center">
+              <div id="imgPreviewWrap"><p class="text-sm text-slate-400">No image loaded</p></div>
+              <canvas id="cropCanvas" class="mt-4 border rounded" style="max-width:100%;display:block"></canvas>
+            </div>
+            <div class="p-4 border rounded bg-white text-sm text-slate-500">
+              <div id="imgMeta">—</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Video Section -->
+      <section id="video" class="hidden tool-card bg-white p-6 rounded-lg shadow">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">Video Compressor</h2>
+          <div class="text-sm text-slate-500">WebM re-encoding (browser-dependent)</div>
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="space-y-4">
+            <input id="videoInputFile" type="file" accept="video/*" />
+            <label class="block">Scale (%) <input id="videoScaleIn" type="range" min="10" max="100" value="50" class="w-full" /></label>
+            <div class="flex gap-2"><button id="videoRunBtn" class="btn bg-red-600 text-white px-3 py-2 rounded">Compress & Download</button><div id="videoStatusTxt" class="text-sm text-slate-500 pt-2"></div></div>
+          </div>
+
+          <div>
+            <div class="p-4 border rounded bg-white">
+              <video id="videoPreviewEl" controls style="width:100%;height:auto"></video>
+            </div>
+            <div class="mt-2 text-sm text-slate-500" id="videoMeta">—</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PDF Section -->
+      <section id="pdf" class="hidden tool-card bg-white p-6 rounded-lg shadow">
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-semibold">PDF Tools</h2>
+          <div class="text-sm text-slate-500">pdf.js + pdf-lib (client-side)</div>
+        </div>
+
+        <div class="mt-4 grid gap-4 md:grid-cols-2">
+          <div class="space-y-4">
+            <div class="p-3 border rounded">
+              <label class="block text-sm">PDF to Images</label>
+              <input id="pdfToImgsFile" type="file" accept="application/pdf" />
+              <div class="mt-2"><button id="pdfToImgsBtn" class="btn bg-orange-500 text-white px-3 py-2 rounded">Convert Pages</button><div id="pdfToImgsStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+            <div class="p-3 border rounded">
+              <label class="block text-sm">Images to PDF</label>
+              <input id="imgsToPdfFile" type="file" accept="image/*" multiple />
+              <div class="mt-2"><button id="imgsToPdfBtn" class="btn bg-emerald-600 text-white px-3 py-2 rounded">Create PDF</button><div id="imgsToPdfStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+            <div class="p-3 border rounded">
+              <label class="block text-sm">Merge PDFs</label>
+              <input id="mergePdfFiles" type="file" accept="application/pdf" multiple />
+              <div class="mt-2"><button id="mergePdfBtn2" class="btn bg-slate-700 text-white px-3 py-2 rounded">Merge</button><div id="mergePdfStatus" class="text-sm text-slate-500 pt-2"></div></div>
+            </div>
+
+          </div>
+
+          <div>
+            <div id="pdfPreviewArea" class="p-4 border rounded bg-white min-h-[200px] overflow-auto"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Extras -->
+      <section id="extras" class="hidden tool-card bg-white p-6 rounded-lg shadow">
+        <h2 class="text-xl font-semibold">Extras</h2>
+        <div class="mt-4 grid md:grid-cols-2 gap-4">
+          <div class="p-4 border rounded">
+            <h3 class="font-medium">QR Code Generator</h3>
+            <p class="text-sm text-slate-500 mt-2">Quick generator for URLs / text</p>
+            <input id="qrText" class="w-full mt-2 p-2 border rounded" placeholder="Enter text or URL" />
+            <div class="mt-2 flex gap-2"><button id="genQrBtn" class="btn bg-indigo-600 text-white px-3 py-2 rounded">Generate</button><div id="qrOut" class="pt-2"></div></div>
+          </div>
+
+          <div class="p-4 border rounded">
+            <h3 class="font-medium">Image Metadata (EXIF)</h3>
+            <p class="text-sm text-slate-500 mt-2">View (read-only) or remove EXIF</p>
+            <input id="exifFile" type="file" accept="image/*" />
+            <div class="mt-2" id="exifOut"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer class="max-w-7xl mx-auto p-4 text-sm text-slate-500">Built with care — images and files never leave your browser unless you download them.</footer>
+
+  <!-- Small third-party libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exifr/dist/full.umd.min.js"></script>
+
+  <script>
+  // ---------- Core UI behavior ----------
+  document.querySelectorAll('#sidebar .tool-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+    document.querySelectorAll('#sidebar .tool-btn').forEach(b=> b.classList.remove('bg-blue-50'));
+    btn.classList.add('bg-blue-50');
+    const target = btn.getAttribute('data-target'); document.querySelectorAll('main section').forEach(s=> s.classList.add('hidden'));
+    document.getElementById(target).classList.remove('hidden'); window.scrollTo({top:0,behavior:'smooth'});
+  }));
+
+  // Image drag & browse
+  const drop = document.getElementById('imageDrop'); const fileInput = document.getElementById('imageFileInput'); const browseBtn = document.getElementById('browseImage');
+  browseBtn.addEventListener('click', ()=> fileInput.click());
+  ['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.add('ring-2','ring-blue-300'); }));
+  ['dragleave','drop'].forEach(ev=> drop.addEventListener(ev,e=>{ e.preventDefault(); drop.classList.remove('ring-2','ring-blue-300'); }));
+  drop.addEventListener('drop', e=>{ const f = e.dataTransfer.files[0]; if(f) loadImageFile(f); });
+  fileInput.addEventListener('change', e=>{ if(e.target.files[0]) loadImageFile(e.target.files[0]); });
+
+  // Tab switching inside image tools
+  const tabMap = { tabCompress: 'panelCompress', tabResize: 'panelResize', tabConvert: 'panelConvert', tabCrop: 'panelCrop' };
+  Object.keys(tabMap).forEach(id=> document.getElementById(id).addEventListener('click', ()=>{
+    Object.values(tabMap).forEach(p=> document.getElementById(p).classList.add('hidden'));
+    document.getElementById(tabMap[id]).classList.remove('hidden');
+  }));
+
+  // Keep track of loaded image
+  let loadedImage = { file:null, img:null, url:null };
+  function clearLoadedImage(){ if(loadedImage.url) URL.revokeObjectURL(loadedImage.url); loadedImage = { file:null, img:null, url:null }; document.getElementById('imgPreviewWrap').innerHTML = '<p class="text-sm text-slate-400">No image loaded</p>'; document.getElementById('imgMeta').textContent='—'; }
+
+  async function loadImageFile(file){ try{ clearLoadedImage(); const url = URL.createObjectURL(file); const img = new Image(); img.onload = ()=>{ loadedImage = { file, img, url }; document.getElementById('imgPreviewWrap').innerHTML = '<img id="mainPreview" src="'+url+'" alt="preview" style="max-width:100%;height:auto;border-radius:6px"/>'; document.getElementById('imgMeta').textContent = file.name + ' — ' + (file.size/1024).toFixed(2) + ' KB'; }; img.onerror = ()=>{ clearLoadedImage(); alert('Failed to load image'); }; img.src = url; }catch(err){ alert('Error loading image: '+err.message); }}
+
+  // ---------- Image operations ----------
+  function canvasFromImage(img, w=img.width, h=img.height){ const c=document.createElement('canvas'); c.width=w; c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); return c; }
+
+  // Compress
+  document.getElementById('compressQuality').addEventListener('input', (e)=> document.getElementById('compressQVal').textContent = e.target.value);
+  document.getElementById('compressRun').addEventListener('click', async ()=>{
+    const status = document.getElementById('compressStatus'); status.textContent=''; if(!loadedImage.img) return status.textContent='No image';
+    try{
+      const q = Number(document.getElementById('compressQuality').value)/100; const canvas = canvasFromImage(loadedImage.img);
+      canvas.toBlob(b=>{ downloadBlob(b, loadedImage.file.name.replace(/\.[^.]+$/,'') + '-compressed.jpg'); status.textContent='Done'; }, 'image/jpeg', q);
+    }catch(err){ status.textContent='Error: '+err.message }
+  });
+
+  // Resize
+  document.getElementById('resizeRun').addEventListener('click', async ()=>{
+    const status = document.getElementById('resizeStatus'); status.textContent=''; if(!loadedImage.img) return status.textContent='No image';
+    try{
+      let w = Number(document.getElementById('resizeW').value) || loadedImage.img.width; let h = Number(document.getElementById('resizeH').value) || loadedImage.img.height;
+      if(document.getElementById('keepAspect').checked){ const ratio = loadedImage.img.width / loadedImage.img.height; if(w && !h) h = Math.round(w / ratio); else if(h && !w) w = Math.round(h * ratio); }
+      const canvas = canvasFromImage(loadedImage.img, Math.max(1,w), Math.max(1,h)); canvas.toBlob(b=>{ downloadBlob(b, loadedImage.file.name.replace(/\.[^.]+$/,'') + '-resized.jpg'); status.textContent='Done'; }, 'image/jpeg', 0.92);
+    }catch(err){ status.textContent='Error: '+err.message }
+  });
+
+  // Convert
+  document.getElementById('convertRun').addEventListener('click', async ()=>{
+    const status = document.getElementById('convertStatus'); status.textContent=''; if(!loadedImage.img) return status.textContent='No image';
+    try{
+      const fmt = document.getElementById('convertFormatSel').value; const canvas = canvasFromImage(loadedImage.img); canvas.toBlob(b=>{ const ext = fmt.split('/')[1]; downloadBlob(b, loadedImage.file.name.replace(/\.[^.]+$/,'') + '-converted.'+ext); status.textContent='Done'; }, fmt, 0.95);
+    }catch(err){ status.textContent='Error: '+err.message }
+  });
+
+  // Crop (visual) — uses start/end from mouse events
+  (function(){ const cv = document.getElementById('cropCanvas'); let img=null; let down=false,sx=0,sy=0, cx=0,cy=0; const statusEl = document.getElementById('cropStatus');
+    cv.addEventListener('mousedown', e=>{ if(!loadedImage.img) return; down=true; const r=cv.getBoundingClientRect(); sx = Math.round((e.clientX - r.left)*(cv.width/r.width)); sy = Math.round((e.clientY - r.top)*(cv.height/r.height)); cx=sx; cy=sy; draw(); });
+    cv.addEventListener('mousemove', e=>{ if(!down) return; const r=cv.getBoundingClientRect(); cx=Math.round((e.clientX - r.left)*(cv.width/r.width)); cy=Math.round((e.clientY - r.top)*(cv.height/r.height)); draw(); });
+    cv.addEventListener('mouseup', ()=>{ down=false; statusEl.textContent='Area selected'; });
+    function draw(){ if(!loadedImage.img) return; cv.width = loadedImage.img.width; cv.height = loadedImage.img.height; const ctx = cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height); ctx.drawImage(loadedImage.img,0,0); if(sx||sy||cx||cy){ const x=Math.min(sx,cx), y=Math.min(sy,cy), w=Math.abs(cx-sx), h=Math.abs(cy-sy); ctx.strokeStyle='rgba(255,59,48,0.9)'; ctx.lineWidth=3; ctx.strokeRect(x,y,w,h); ctx.fillStyle='rgba(255,59,48,0.12)'; ctx.fillRect(x,y,w,h); } }
+    // load preview when image loads
+    const observer = new MutationObserver(()=>{ if(loadedImage.img){ cv.width = loadedImage.img.width; cv.height = loadedImage.img.height; cv.getContext('2d').drawImage(loadedImage.img,0,0); } }); observer.observe(document.getElementById('imgPreviewWrap'), { childList:true });
+    document.getElementById('cropRun').addEventListener('click', ()=>{
+      if(!loadedImage.img) return statusEl.textContent='No image'; const x=Math.min(sx,cx), y=Math.min(sy,cy), w=Math.abs(cx-sx), h=Math.abs(cy-sy); if(w<=0||h<=0) return statusEl.textContent='Select area first'; const out = document.createElement('canvas'); out.width=w; out.height=h; out.getContext('2d').drawImage(loadedImage.img,x,y,w,h,0,0,w,h); out.toBlob(b=>{ downloadBlob(b, loadedImage.file.name.replace(/\.[^.]+$/,'') + '-cropped.jpg'); statusEl.textContent='Done'; }, 'image/jpeg', 0.95); });
+  })();
+
+  // ---------- Video ----------
+  const videoInput = document.getElementById('videoInputFile'); const videoEl = document.getElementById('videoPreviewEl');
+  videoInput.addEventListener('change', ()=>{ const f = videoInput.files[0]; if(!f) return; videoEl.src = URL.createObjectURL(f); document.getElementById('videoMeta').textContent = f.name + ' — ' + Math.round(f.size/1024) + ' KB'; });
+
+  document.getElementById('videoRunBtn').addEventListener('click', async ()=>{
+    const status = document.getElementById('videoStatusTxt'); status.textContent=''; const f = videoInput.files[0]; if(!f) return status.textContent='No file';
+    const scale = Math.max(0.1, Math.min(1, (Number(document.getElementById('videoScaleIn').value)||50)/100));
+    try{
+      status.textContent='Processing — may take time';
+      const url = URL.createObjectURL(f); const v = document.createElement('video'); v.src = url; v.muted = true; await v.play().catch(()=>{}); await new Promise(res=> v.onloadedmetadata = res);
+      const cw = Math.max(1, Math.round(v.videoWidth*scale)); const ch = Math.max(1, Math.round(v.videoHeight*scale)); const c = document.createElement('canvas'); c.width = cw; c.height = ch; const ctx = c.getContext('2d');
+      const stream = c.captureStream(25); const mime = 'video/webm'; const opts = { mimeType: mime, videoBitsPerSecond: 800000 };
+      const recorder = new MediaRecorder(stream, opts); const chunks = []; recorder.ondataavailable = e=> { if(e.data && e.data.size) chunks.push(e.data); };
+      recorder.start(1000);
+      let raf;
+      function draw(){ if(v.ended || v.paused){ try{ recorder.stop(); }catch(e){} return; } ctx.drawImage(v,0,0,cw,ch); raf = requestAnimationFrame(draw); }
+      v.currentTime = 0; v.play(); draw(); recorder.onstop = ()=>{ const blob = new Blob(chunks, {type:mime}); downloadBlob(blob, f.name.replace(/\.[^.]+$/,'') + '-compressed.webm'); videoEl.src = URL.createObjectURL(blob); status.textContent='Done'; URL.revokeObjectURL(url); if(raf) cancelAnimationFrame(raf); };
+    }catch(err){ status.textContent='Error: '+err.message }
+  });
+
+  // ---------- PDF tools (pdf.js + pdf-lib) ----------
+  if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+
+  // PDF -> Images
+  document.getElementById('pdfToImgsBtn').addEventListener('click', async ()=>{
+    const stat = document.getElementById('pdfToImgsStatus'); stat.textContent=''; const f = document.getElementById('pdfToImgsFile').files[0]; if(!f) return stat.textContent='No PDF';
+    try{
+      stat.textContent='Rendering...'; const arr = await f.arrayBuffer(); const loading = pdfjsLib.getDocument({data:arr}); const pdf = await loading.promise; const out = document.getElementById('pdfPreviewArea'); out.innerHTML='';
+      for(let i=1;i<=pdf.numPages;i++){ const page = await pdf.getPage(i); const vp = page.getViewport({scale:1.5}); const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d'); canvas.width = vp.width; canvas.height = vp.height; await page.render({canvasContext:ctx,viewport:vp}).promise; const dataUrl = canvas.toDataURL('image/png'); const a = document.createElement('a'); a.href = dataUrl; a.download = f.name.replace(/\.[^.]+$/,'') + '-page-' + i + '.png'; a.textContent='Download page ' + i; a.className='inline-block mt-2 text-sm text-blue-600'; const img = document.createElement('img'); img.src = dataUrl; img.className='mt-2 border'; out.appendChild(img); out.appendChild(a); }
+      stat.textContent='Done';
+    }catch(err){ stat.textContent='Error: '+err.message }
+  });
+
+  // Images -> PDF
+  document.getElementById('imgsToPdfBtn').addEventListener('click', async ()=>{
+    const stat = document.getElementById('imgsToPdfStatus'); stat.textContent=''; const files = Array.from(document.getElementById('imgsToPdfFile').files); if(!files.length) return stat.textContent='No images';
+    try{
+      stat.textContent='Creating PDF...'; const pdfDoc = await PDFLib.PDFDocument.create();
+      for(const f of files){ const buf = await f.arrayBuffer(); if(f.type === 'image/png'){ const img = await pdfDoc.embedPng(buf); const page = pdfDoc.addPage([img.width,img.height]); page.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); } else { const img = await pdfDoc.embedJpg(buf); const page = pdfDoc.addPage([img.width,img.height]); page.drawImage(img,{x:0,y:0,width:img.width,height:img.height}); } }
+      const bytes = await pdfDoc.save(); downloadBlob(new Blob([bytes],{type:'application/pdf'}), 'images-assembled.pdf'); stat.textContent='Done';
+    }catch(err){ stat.textContent='Error: '+err.message }
+  });
+
+  // Merge PDFs
+  document.getElementById('mergePdfBtn2').addEventListener('click', async ()=>{
+    const stat = document.getElementById('mergePdfStatus'); stat.textContent=''; const files = Array.from(document.getElementById('mergePdfFiles').files); if(!files.length) return stat.textContent='No PDFs';
+    try{
+      stat.textContent='Merging...'; const outPdf = await PDFLib.PDFDocument.create();
+      for(const f of files){ const arr = await f.arrayBuffer(); const donor = await PDFLib.PDFDocument.load(arr); const copied = await outPdf.copyPages(donor, donor.getPageIndices()); copied.forEach(p=> outPdf.addPage(p)); }
+      const out = await outPdf.save(); downloadBlob(new Blob([out],{type:'application/pdf'}), 'merged.pdf'); stat.textContent='Done';
+    }catch(err){ stat.textContent='Error: '+err.message }
+  });
+
+  // QR code
+  document.getElementById('genQrBtn').addEventListener('click', ()=>{
+    const t = document.getElementById('qrText').value.trim(); const out = document.getElementById('qrOut'); out.innerHTML=''; if(!t) return; QRCode.toDataURL(t, {width:200}).then(url=>{ const img = document.createElement('img'); img.src = url; out.appendChild(img); }).catch(e=> out.textContent='Failed');
+  });
+
+  // EXIF reader
+  document.getElementById('exifFile').addEventListener('change', async (e)=>{
+    const f = e.target.files[0]; if(!f) return; const out = document.getElementById('exifOut'); out.innerHTML=''; try{ const ex = await exifr.parse(f); out.textContent = JSON.stringify(ex, null, 2); }catch(err){ out.textContent='No EXIF or error'; }
+  });
+
+  // Utility: safe download
+  function downloadBlob(blob, name){ const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 1500); }
+
+  </script>
+</body>
+</html>
 
